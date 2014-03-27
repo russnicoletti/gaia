@@ -7,24 +7,113 @@ require('/shared/js/lazy_loader.js');
 require('/shared/js/l10n.js');
 require('/shared/js/l10n_date.js');
 require('/shared/js/media/media_utils.js');
+require('/shared/js/media/video_stats.js');
 require('/shared/test/unit/load_body_html_helper.js');
 requireApp('/video/js/video.js');
+requireApp('/video/js/video_utils.js');
 requireApp('/video/test/unit/mock_l10n.js');
 requireApp('/video/test/unit/mock_thumbnail_group.js');
+requireApp('/video/test/unit/mock_mediadb.js');
+requireApp('/video/test/unit/mock_video_data.js');
 requireApp('/video/js/thumbnail_list.js');
 
 var metadataQueue;
 var MediaDB;
+var videodb;
+var selectedVideo;
+var selectedThumbnailItemName = 'test-video.webm';
+var videoControlsAutoHidingMsOverride = 0;
+var autoPlay, enterFullscreen, keepControls;
+var videoDuration = 1.25;
+
+function containsClass(element, value) {
+  return element.classList.contains(value);
+}
+
+/**
+ * Utility function for showPlayer tests to ensure
+ * async functionality has finished before testing
+ * asserts. Nested setTimeout functions simulate
+ * polling semantics.
+ */
+var waitForDoneSeeking = function(player, callback) {
+  if (player.hidden === false) {
+    console.log('before timeouts');
+    callback();
+  }
+
+  var abort = false;
+  setTimeout(function() {
+    if (player.hidden === false) {
+      console.log('first setTimeout');
+      abort = true;
+      callback();
+    }
+    if (!abort) {
+      setTimeout(function() {
+        if (player.hidden === false) {
+          console.log('second setTimeout');
+          abort = true;
+          callback();
+        }
+        if (!abort) {
+          setTimeout(function() {
+            if (player.hidden === false) {
+              console.log('third setTimeout');
+              abort = true;
+              callback();
+            }
+            if (!abort) {
+              setTimeout(function() {
+                if (player.hidden === false) {
+                  console.log('fourth setTimeout');
+                  callback();
+                }
+              } , 500);
+            }
+          } , 100);
+        }
+      }, 50);
+    }
+  }, 25);
+};
 
 suite('Video App Unit Tests', function() {
   var nativeMozL10n;
   suiteSetup(function() {
+
     // Create DOM structure
     loadBodyHTML('/index.html');
     dom.infoView = document.getElementById('info-view');
+    dom.player = document.getElementById('player');
+    dom.durationText = document.getElementById('duration-text');
+    dom.play = document.getElementById('play');
+    dom.videoTitle = document.getElementById('video-title');
+    dom.videoContainer = document.getElementById('video-container');
+    dom.videoControls = document.getElementById('videoControls');
+    dom.elapsedText = document.getElementById('elapsed-text');
+    dom.elapsedTime = document.getElementById('elapsedTime');
+    dom.playHead = document.getElementById('playHead');
+
     nativeMozL10n = navigator.mozL10n;
     navigator.mozL10n = MockL10n;
     MediaUtils._ = MockL10n.get;
+
+    selectedVideo = {
+      'name': selectedThumbnailItemName,
+      'type': 'video\/webm',
+      'size': '19565',
+      'date': '1395088917000',
+      'metadata': {
+          'isVideo': 'true',
+          'title': 'test-video1',
+          'duration': videoDuration,
+          'width': '640',
+          'height': '360',
+          'rotation': '0',
+          'currentTime': 0
+      }
+    };
   });
 
   suiteTeardown(function() {
@@ -267,6 +356,472 @@ suite('Video App Unit Tests', function() {
       assert.equal(dom.overlayActionButton.classList.contains('hidden'), true);
       assert.equal(dom.overlayTitle.textContent, 'pluggedin-title');
       assert.equal(dom.overlayText.textContent, 'pluggedin-text');
+    });
+  });
+
+  suite('#showPlayer flows', function() {
+
+    before(function() {
+
+      MockThumbnailGroup.reset();
+      var dummyContainer = document.createElement('div');
+
+      thumbnailList = new ThumbnailList(MockThumbnailGroup, dummyContainer);
+    });
+
+    /**
+     * When device is tablet, changing screen orientation to landscape AND
+     * when device is tablet, screen orientation is landscape, cancelling
+     * "thumbnail select view" AND
+     * when parsing metadata for new files is complete and there is at least
+     * one video:
+     * - autoPlay=false, enterFullscreen=false, keepControls=true
+     *   + show, do not play, current video
+     *   + do not show fullscreen
+     *   + do not auto-hide controls
+     *   + change focus from 'old' thumbnail to newly selected
+     *   (if 'old' exists)
+     */
+    test('#showPlayer: !play, !fullscreen, show controls - curr video exists',
+        function(done) {
+
+      currentVideo = {
+        'name': 'current video',
+        'type': 'video\/webm',
+        'size': '1048576',
+        'date': '1395088917000',
+        'metadata': {
+            'isVideo': 'true',
+            'title': 'test-video2',
+            'duration': '5:00',
+            'width': '640',
+            'height': '360',
+            'rotation': '0',
+            'currentTime': 1.2
+        }
+      };
+
+      // Mock that the 'current' thumbnail is focused
+      MockThumbnailGroup._GroupID = '2014-03_current';
+      thumbnailList.addItem(currentVideo);
+      var currentThumbnail = thumbnailList.thumbnailMap[currentVideo.name];
+      currentThumbnail.htmlNode.classList.add('focused');
+      dom.play.classList.add('paused');
+
+      // Thumbnail being selected is not focused
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+      var selectedThumbnail =
+          thumbnailList.thumbnailMap[selectedVideo.name];
+
+      assert.equal(containsClass(currentThumbnail.htmlNode,
+                                 'focused'), true);
+      assert.equal(containsClass(selectedThumbnail.htmlNode,
+                                 'focused'), false);
+
+      document.body.classList.add(LAYOUT_MODE.list); // Stage list layout
+      dom.videoControls.classList.add('hidden'); // Stage controls being hidden
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo,
+                 autoPlay,
+                 enterFullscreen,
+                 keepControls);
+
+      assert.equal(containsClass(currentThumbnail.htmlNode,
+                   'focused'), false);
+      assert.equal(containsClass(selectedThumbnail.htmlNode,
+                   'focused'), true);
+
+      assert.equal(dom.player.preload, 'metadata');
+      assert.equal(dom.player.hidden, true);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime, currentVideo.metadata.currentTime);
+        assert.equal(containsClass(dom.play, 'paused'), true);
+        assert.equal(dom.durationText.textContent, '00:01');
+        assert.equal(containsClass(dom.videoControls, 'hidden'), false);
+        assert.equal(containsClass(document.body,
+                                   LAYOUT_MODE.list), true);
+        assert.equal(containsClass(document.body,
+                                   LAYOUT_MODE.fullscreenPlayer), false);
+        done();
+      });
+    });
+
+    test('#showPlayer: !play, !fullscreen, show controls - no current video',
+        function(done) {
+
+      currentVideo = null;
+
+      // Thumbnail being selected is not focused
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+      var selectedThumbnail =
+          thumbnailList.thumbnailMap[selectedVideo.name];
+
+      selectedThumbnail.htmlNode.classList.remove('focused');
+      assert.equal(containsClass(selectedThumbnail.htmlNode,
+                   'focused'), false);
+
+      document.body.classList.add(LAYOUT_MODE.list); // Stage list layout
+      dom.videoControls.classList.add('hidden'); // Stage controls being hidden
+      assert.equal(containsClass(dom.videoControls, 'hidden'), true);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      // currentVideo should be same as selectedVideo
+      assert.equal(currentVideo.name, selectedVideo.name);
+      assert.equal(currentVideo.type, selectedVideo.type);
+      assert.equal(currentVideo.date, selectedVideo.date);
+      assert.equal(currentVideo.metadata.isVideo,
+                   selectedVideo.metadata.isVideo);
+      assert.equal(currentVideo.metadata.title,
+                   selectedVideo.metadata.title);
+      assert.equal(currentVideo.metadata.duration,
+                   selectedVideo.metadata.duration);
+      assert.equal(currentVideo.metadata.width,
+                   selectedVideo.metadata.width);
+      assert.equal(currentVideo.metadata.height,
+                   selectedVideo.metadata.height);
+      assert.equal(currentVideo.metadata.rotation,
+                   selectedVideo.metadata.rotation);
+      assert.equal(currentVideo.metadata.currentTime,
+                   selectedVideo.metadata.currentTime);
+
+      assert.equal(containsClass(selectedThumbnail.htmlNode, 'focused'), true);
+      assert.equal(dom.player.preload, 'metadata');
+      assert.equal(dom.player.hidden, true);
+
+      // Note: This test does not test setVideoUrl as none of the variables
+      //       that affect that function have been changed from the previous
+      //       test.
+
+      // Wait for doneSeeking to finish to avoid complications with the
+      // explicit doneSeeking tests
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.durationText.textContent, '00:01');
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.list), true);
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.fullscreenPlayer), false);
+        assert.equal(dom.play.classList.contains('paused'), true);
+        done();
+      });
+    });
+
+    /*
+     * Test
+     *  - the video player is playing (not paused),
+     *  - device is not fullscreen
+     *  - video controls are shown.
+     * This test does not test the body of show player as
+     * that has already been tested fully by the previous
+     * tests.
+     */
+
+    test('#showPlayer: play, !fullscreen, show controls',
+        function(done) {
+
+      currentVideo = null;
+
+      // Thumbnail being selected is not focused
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      document.body.classList.add(LAYOUT_MODE.list); // Not fullscreen
+      dom.videoControls.classList.add('hidden');
+      autoPlay = true;
+      enterFullscreen = false;
+      keepControls = true;
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(containsClass(document.body, LAYOUT_MODE.list), true);
+        assert.equal(containsClass(dom.play, 'paused'), false);
+        assert.equal(containsClass(dom.videoControls, 'hidden'), false);
+        done();
+      });
+    });
+
+    /*
+     * Test
+     *  - the video player is playing (not paused),
+     *  - device is fullscreen
+     *  - video controls are shown.
+     * This test does not test the body of show player as
+     * that has already been tested fully by the previous
+     * tests.
+     */
+    test('#showPlayer: play, fullscreen, show controls',
+        function(done) {
+
+      currentVideo = null;
+
+      // Thumbnail being selected is not focused
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      //
+      // Not fullscreen, prepare to change layout made to fullscreen
+      //
+      currentLayoutMode = LAYOUT_MODE.list;
+      document.body.classList.add(LAYOUT_MODE.list);
+
+      dom.videoControls.classList.add('hidden');
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = true;
+      enterFullscreen = true;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.list), false);
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.fullscreenPlayer), true);
+        assert.equal(containsClass(dom.play, 'paused'), false);
+        assert.equal(containsClass(dom.videoControls, 'hidden'), false);
+        done();
+      });
+    });
+
+    /*
+     * Test
+     *  - the video player is playing (not paused),
+     *  - device is fullscreen
+     *  - video controls are hidden.
+     * This test does not test the body of show player as
+     * that has already been tested fully by the previous
+     * tests.
+     */
+    test('#showPlayer: play, fullscreen, !show controls',
+        function(done) {
+
+      currentVideo = null;
+
+      // Thumbnail being selected is not focused
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      //
+      // Not fullscreen, prepare to change layout made to fullscreen
+      //
+      currentLayoutMode = LAYOUT_MODE.list;
+      document.body.classList.add(LAYOUT_MODE.list);
+
+      // In order to test 'setControlsVisibility(true)'
+      isPhone = true;
+      dom.videoControls.classList.remove('hidden');
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = true;
+      enterFullscreen = true;
+      keepControls = false;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.list), false);
+        assert.equal(containsClass(document.body,
+                     LAYOUT_MODE.fullscreenPlayer), true);
+        assert.equal(containsClass(dom.play, 'paused'), false);
+        assert.equal(containsClass(dom.videoControls, 'hidden'), true);
+        done();
+      });
+    });
+
+    /**
+     *   Tests whether the appropriate video-related elements
+     *   are set properly based on the metadata of the selected video:
+     *
+     *   - video position is not at end
+     */
+    test('#showPlayer: selected video has metadata, not at end',
+        function(done) {
+
+      currentVideo = null;
+
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime,
+                     selectedVideo.metadata.currentTime);
+        assert.equal(dom.videoTitle.textContent,
+            selectedVideo.metadata.title);
+        done();
+      });
+    });
+
+    /**
+     *   Tests whether the appropriate video-related elements
+     *   are set properly based on the metadata of the selected video:
+     *
+     *   - video position is at end
+     */
+    test('#showPlayer: selected video has metadata, at end',
+        function(done) {
+
+      currentVideo = null;
+      selectedVideo.metadata.currentTime = videoDuration;
+
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime, 0);
+        assert.equal(dom.videoTitle.textContent, currentVideo.metadata.title);
+        done();
+      });
+    });
+
+    /**
+     *   Tests whether the appropriate video-related elements
+     *   are set properly based on the metadata of the selected video:
+     *
+     *   - video has not been played before (metadata.currentTime
+     *     has no value)
+     */
+    test('#showPlayer: selected video has metadata, first time played',
+        function(done) {
+
+      currentVideo = null;
+      selectedVideo = {
+        'name': selectedThumbnailItemName,
+        'type': 'video\/webm',
+        'size': '19565',
+        'date': '1395088917000',
+        'metadata': {
+            'isVideo': 'true',
+            'title': 'test-video1',
+            'duration': videoDuration,
+            'width': '640',
+            'height': '360',
+            'rotation': '0'
+        }
+      };
+
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime, 0);
+        assert.equal(dom.videoTitle.textContent, currentVideo.metadata.title);
+        done();
+      });
+    });
+
+    /**
+     *   Tests whether the appropriate video-related elements
+     *   are set properly based on the metadata of the selected video:
+     *
+     *   - video does not have metadata
+     *   - video does not have a title
+     */
+    test('#showPlayer: selected video has no metadata, no title',
+        function(done) {
+
+      currentVideo = null;
+      selectedVideo = {
+        'name': selectedThumbnailItemName,
+        'type': 'video\/webm',
+        'size': '19565',
+        'date': '1395088917000'
+      };
+
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime, 0);
+        assert.equal(dom.videoTitle.textContent, '');
+        done();
+      });
+    });
+
+    /**
+     *   Tests whether the appropriate video-related elements
+     *   are set properly based on the metadata of the selected video:
+     *
+     *   - video does not have metadata
+     *   - video does have a title
+     */
+    test('#showPlayer: selected video has no metadata, has title',
+        function(done) {
+
+      currentVideo = null;
+      selectedVideo = {
+        'name': selectedThumbnailItemName,
+        'type': 'video\/webm',
+        'size': '19565',
+        'date': '1395088917000',
+        'title': 'test-video1'
+      };
+
+      MockThumbnailGroup._GroupID = '2014-03_selected';
+      thumbnailList.addItem(selectedVideo);
+
+      videodb = new MockMediaDB(selectedVideo, mockVideo);
+
+      autoPlay = false;
+      enterFullscreen = false;
+      keepControls = true;
+      showPlayer(selectedVideo, autoPlay, enterFullscreen, keepControls);
+
+      waitForDoneSeeking(dom.player, function() {
+        assert.equal(dom.player.duration, videoDuration);
+        assert.equal(dom.player.currentTime, 0);
+        assert.equal(dom.videoTitle.textContent, selectedVideo.title);
+        done();
+      });
     });
   });
 });
