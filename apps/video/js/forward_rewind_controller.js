@@ -1,15 +1,15 @@
 /* exported ForwardRewindController */
 /* globals pause */
 
-/**
-   * This file is used for forward and rewind funtionality of Gaia Video app.
-   *
-   * If the user taps the forward or rewind icons,
-   * the video will jump forward or back by 10 seconds.
-   *
-   * When the user presses and holds on the forward or rewind icons,
-   * the video time will move foward or back at 10 times the regular speed.
-   */
+/*
+ * This file is used for forward and rewind funtionality of Gaia Video app.
+ *
+ * If the user taps the forward or rewind icons,
+ * the video will jump forward or back by 10 seconds.
+ *
+ * When the user presses and holds on the forward or rewind icons,
+ * the video time will move foward or back at 10 times the regular speed.
+ */
 
 'use strict';
 
@@ -17,54 +17,33 @@ var ForwardRewindController = (function() {
 
   var isLongPressing = false;
   var intervalId = null;
-  var forwardButton;
-  var backwardButton;
-  var videoToolbar;
   var player;
 
-  function init(video, forward, backward) {
-    forwardButton = forward;
-    backwardButton = backward;
+  function init(video) {
+    console.log('ForwardRewindController init');
     player = video;
-
-    videoToolbar = forward.parentElement;
-    videoToolbar.addEventListener('click', handleButtonClick);
-    videoToolbar.addEventListener('contextmenu', handlePlayerLongPress);
-    videoToolbar.addEventListener('touchend', stopFastSeeking);
   }
 
-  function uninit(video, forward, backward) {
-    videoToolbar.removeEventListener('click', handleButtonClick);
-    videoToolbar.removeEventListener('contextmenu', handlePlayerLongPress);
-    videoToolbar.removeEventListener('touchend', stopFastSeeking);
-
-    forwardButton = null;
-    backwardButton = null;
+  function uninit(video) {
     player = null;
   }
 
-  function handleButtonClick(event) {
-
-    if (event.target === forwardButton) {
-      startFastSeeking(1);
-    } else if (event.target === backwardButton) {
-      startFastSeeking(-1);
-    } else {
-      return;
-    }
+  function handleSeekForward() {
+    startFastSeeking(1);
   }
 
-  function handlePlayerLongPress(event) {
+  function handleSeekBackward() {
+    startFastSeeking(-1);
+  }
 
-    if (event.target === forwardButton) {
-      isLongPressing = true;
-      startFastSeeking(1);
-    } else if (event.target === backwardButton) {
-      isLongPressing = true;
-      startFastSeeking(-1);
-    } else {
-      return;
-    }
+  function handleLongPressForward() {
+    isLongPressing = true;
+    startFastSeeking(1);
+  }
+
+  function handleLongPressBackward() {
+    isLongPressing = true;
+    startFastSeeking(-1);
   }
 
   function startFastSeeking(direction) {
@@ -82,10 +61,10 @@ var ForwardRewindController = (function() {
   }
 
   function stopFastSeeking() {
-    if (intervalId) {
-     window.clearInterval(intervalId);
-     intervalId = null;
-     isLongPressing = false;
+    if (isLongPressing && intervalId) {
+      window.clearInterval(intervalId);
+      intervalId = null;
+      isLongPressing = false;
     }
   }
 
@@ -114,7 +93,11 @@ var ForwardRewindController = (function() {
   return {
    init: init,
    uninit: uninit,
-   stopFastSeeking: stopFastSeeking
+   handleSeekForward: handleSeekForward,
+   handleSeekBackward: handleSeekBackward,
+   handleLongPressForward: handleLongPressForward,
+   handleLongPressBackward: handleLongPressBackward,
+   handleLongPressStop: stopFastSeeking
   };
 
 }());

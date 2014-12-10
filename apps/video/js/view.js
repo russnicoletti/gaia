@@ -123,13 +123,11 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     // so we'll play the video without going into fullscreen mode.
 
     // Get all the elements we use by their id
-    var ids = ['player', 'player-view', 'videoControls',
-               'player-header', 'play', 'playHead', 'video-container',
-               'elapsedTime', 'video-title', 'duration-text', 'elapsed-text',
-               'slider-wrapper', 'spinner-overlay',
-               'save', 'banner', 'message', 'seek-forward',
-               'seek-backward', 'videoControlBar', 'in-use-overlay',
-               'in-use-overlay-title', 'in-use-overlay-text'];
+    var ids = ['player', 'player-view', 'videoControlsContainer',
+               'player-header', 'video-container', 'video-title',
+               'spinner-overlay', 'save', 'banner', 'message',
+               'in-use-overlay', 'in-use-overlay-title',
+               'in-use-overlay-text', 'gaia-video-controls'];
 
     ids.forEach(function createElementRef(name) {
       dom[toCamelCase(name)] = document.getElementById(name);
@@ -143,10 +141,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
 
     dom.player.mozAudioChannelType = 'content';
 
-    // handling the dragging of slider
-    dom.sliderWrapper.addEventListener('touchstart', handleSliderTouchStart);
-    dom.sliderWrapper.addEventListener('touchmove', handleSliderTouchMove);
-    dom.sliderWrapper.addEventListener('touchend', handleSliderTouchEnd);
+    addVideoControlsListeners();
 
     // Rescale when window size changes. This should get called when
     // orientation changes.
@@ -158,7 +153,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     });
 
     dom.player.addEventListener('timeupdate', timeUpdated);
-    dom.player.addEventListener('seeked', updateSlider);
+    dom.player.addEventListener('seeked', updateVideoControlSlider);
 
     // showing + hiding the loading spinner
     dom.player.addEventListener('waiting', showSpinner);
@@ -169,13 +164,35 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     dom.player.addEventListener('canplaythrough', hideSpinner);
 
     // option buttons
-    dom.play.addEventListener('click', handlePlayButtonClick);
     dom.playerHeader.addEventListener('action', done);
     dom.save.addEventListener('click', save);
     // show/hide controls
-    dom.videoControls.addEventListener('click', toggleVideoControls, true);
+    dom.videoControlsContainer.addEventListener('click',
+                                                toggleVideoControls,
+                                                true);
 
-    ForwardRewindController.init(dom.player, dom.seekForward, dom.seekBackward);
+    ForwardRewindController.init(dom.player);
+  }
+
+  function addVideoControlsListeners() {
+    // play, pause, forward, rewind
+    window.addEventListener('play-button-click',
+                             handlePlayButtonClick);
+    window.addEventListener('seek-forward-button-click',
+                             handleSeekForwardButtonClick);
+    window.addEventListener('seek-backward-button-click',
+                             handleSeekBackwardButtonClick);
+    window.addEventListener('longpress-forward-button-click',
+                             handleLongPressForwardButtonClick);
+    window.addEventListener('longpress-backward-button-click',
+                             handleLongPressBackwardButtonClick);
+    window.addEventListener('longpress-stop',
+                             handleLongPressStop);
+
+    // slider events
+    window.addEventListener('slider-touch-start', handleSliderTouchStart);
+    window.addEventListener('slider-touch-move', handleSliderTouchMove);
+    window.addEventListener('slider-touch-end', handleSliderTouchEnd);
   }
 
   function checkFilename() {
@@ -189,11 +206,11 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
   }
 
   function setControlsVisibility(visible) {
-    dom.videoControls.classList[visible ? 'remove' : 'add']('hidden');
+    dom.videoControlsContainer.classList[visible ? 'remove' : 'add']('hidden');
     controlShowing = visible;
     if (visible) {
       // update elapsed time and slider while showing.
-      updateSlider();
+      updateVideoControlSlider();
     }
   }
 
@@ -214,33 +231,10 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
       // If control not shown, tap any place to show it.
       setControlsVisibility(true);
       e.cancelBubble = true;
-    } else if (e.originalTarget === dom.videoControls) {
+    } else if (e.originalTarget === dom.videoControlsContainer) {
       // If control is shown, only tap the empty area should show it.
       setControlsVisibility(false);
     }
-  }
-
-  function handleSliderTouchStart(event) {
-    // If we have a touch start event, we don't need others.
-    if (null != touchStartID) {
-      return;
-    }
-    touchStartID = event.changedTouches[0].identifier;
-
-    isPausedWhileDragging = dom.player.paused;
-    dragging = true;
-    // calculate the slider wrapper size for slider dragging.
-    sliderRect = dom.sliderWrapper.getBoundingClientRect();
-
-    // We can't do anything if we don't know our duration
-    if (dom.player.duration === Infinity)
-      return;
-
-    if (!isPausedWhileDragging) {
-      dom.player.pause();
-    }
-
-    handleSliderTouchMove(event);
   }
 
   function done() {
@@ -283,11 +277,10 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
   // show video player
   function showPlayer(url, title) {
     function handleLoadedMetadata() {
-      dom.durationText.textContent = MediaUtils.formatDuration(
-        dom.player.duration);
+      dom.gaiaVideoControls.setVideoDurationText(dom.player.duration);
       timeUpdated();
+      dom.gaiaVideoControls.setPlayerPaused(false);
 
-      dom.play.classList.remove('paused');
       VideoUtils.fitContainer(dom.videoContainer, dom.player,
                               videoRotation || 0);
 
@@ -348,7 +341,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
 
   function play() {
     // Switch the button icon
-    dom.play.classList.remove('paused');
+    dom.gaiaVideoControls.setPlayerPaused(false);
 
     // Start playing
     dom.player.play();
@@ -357,7 +350,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
 
   function pause() {
     // Switch the button icon
-    dom.play.classList.add('paused');
+    dom.gaiaVideoControls.setPlayerPaused(true);
 
     // Stop playing the video
     dom.player.pause();
@@ -374,7 +367,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
         return;
       }
 
-      updateSlider();
+      updateVideoControlSlider();
     }
 
     // Since we don't always get reliable 'ended' events, see if
@@ -415,92 +408,49 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     }
   }
 
-  function movePlayHead(percent) {
-    if (navigator.mozL10n.language.direction === 'ltr') {
-      dom.playHead.style.left = percent;
-    }
-    else {
-      dom.playHead.style.right = percent;
-    }
+  function handlePlayButtonClick() {
+    setVideoPlaying(dom.player.paused);
   }
 
-  function updateSlider() {
-    // We update the slider when we get a 'seeked' event.
-    // Don't do updates while we're seeking because the position we fastSeek()
-    // to probably isn't exactly where we requested and we don't want jerky
-    // updates
-    if (dom.player.seeking) {
-      return;
-    }
-
-    var percent = (dom.player.currentTime / dom.player.duration) * 100;
-    if (isNaN(percent)) // this happens when we end the activity
-      return;
-    percent += '%';
-
-    dom.elapsedText.textContent = MediaUtils.formatDuration(
-      dom.player.currentTime);
-    dom.elapsedTime.style.width = percent;
-    // Don't move the play head if the user is dragging it.
-    if (!dragging) {
-      movePlayHead(percent);
-    }
+  function handleSeekForwardButtonClick() {
+    ForwardRewindController.handleSeekForward();
   }
 
-  function handleSliderTouchEnd(event) {
-    // We don't care the event not related to touchStartID
-    if (!event.changedTouches.identifiedTouch(touchStartID)) {
-      return;
-    }
-    touchStartID = null;
+  function handleSeekBackwardButtonClick() {
+    ForwardRewindController.handleSeekBackward();
+  }
 
-    if (!dragging) {
-      // We don't need to do anything without dragging.
-      return;
-    }
+  function handleLongPressForwardButtonClick() {
+    ForwardRewindController.handleLongPressForward();
+  }
 
-    dragging = false;
+  function handleLongPressBackwardButtonClick() {
+    ForwardRewindController.handleLongPressBackward();
+  }
 
-    dom.playHead.classList.remove('active');
+  function handleLongPressStop() {
+    ForwardRewindController.handleLongPressStop();
+  }
 
-    if (dom.player.currentTime === dom.player.duration) {
-      pause();
-    } else if (!isPausedWhileDragging) {
-      dom.player.play();
-    }
+  function handleSliderTouchStart(event) {
+    dragging = dom.gaiaVideoControls.handleSliderTouchStart(event.detail,
+                                                            dom.player);
   }
 
   function handleSliderTouchMove(event) {
-    if (!dragging) {
-      return;
+    dom.gaiaVideoControls.handleSliderTouchMove(event.detail, player);
+  }
+
+  function handleSliderTouchEnd(event) {
+    if (dom.gaiaVideoControls.handleSliderTouchEnd(event.detail,
+                                                   player,
+                                                   pause)) {
+      dragging = false;
     }
+  }
 
-    var touch = event.changedTouches.identifiedTouch(touchStartID);
-    // We don't care the event not related to touchStartID
-    if (!touch) {
-      return;
-    }
-
-    function getTouchPos() {
-      return (navigator.mozL10n.language.direction === 'ltr') ?
-         (touch.clientX - sliderRect.left) :
-         (sliderRect.right - touch.clientX);
-    }
-
-    var touchPos = getTouchPos();
-
-    var pos = touchPos / sliderRect.width;
-    pos = Math.max(pos, 0);
-    pos = Math.min(pos, 1);
-
-    // Update the slider to match the position of the user's finger.
-    // Note, however, that we don't update the displayed time until
-    // we actually get a 'seeked' event.
-    var percent = pos * 100 + '%';
-    dom.playHead.classList.add('active');
-    movePlayHead(percent);
-    dom.elapsedTime.style.width = percent;
-    dom.player.fastSeek(dom.player.duration * pos);
+  function updateVideoControlSlider() {
+    dom.gaiaVideoControls.updateSlider(player, dragging);
   }
 
   function showBanner(msg) {

@@ -56,7 +56,7 @@ function ThumbnailDateGroup(item) {
     throw new Error('template is required while rendering.');
   }
 
-  var htmlText = ThumbnailDateGroup.Template.interpolate();
+  var htmlText = ThumbnailDateGroup.Template.interpolate({'group-header': ''});
 
   // create dummy node for converting to DOM node.
   var dummyDiv = document.createElement('DIV');
