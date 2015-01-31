@@ -20,12 +20,12 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom', 'thumbnail-list-title',
            'thumbnails-single-delete-button', 'thumbnails-single-share-button',
            'thumbnails-single-info-button', 'info-view', 'info-close-button',
            'player', 'overlay', 'overlay-title', 'overlay-text',
-           'overlay-menu', 'overlay-action-button', 'player-header',
-           'video-container', 'mediaControlsContainer', 'close', 'video-title',
+           'overlay-menu', 'overlay-action-button', /*'player-header',*/
+    'video-container', /*'mediaControlsContainer',*/ 'close',/* 'video-title',*/
            'throbber', 'picker-close', 'picker-title', 'picker-header',
-           'picker-done', 'options', 'options-view', 'options-cancel-button',
+          /*'picker-done', 'options',*/ 'options-view', 'options-cancel-button',
            'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text',
-           'media-controls'];
+           'media-player-component'];
 
 ids.forEach(function createElementRef(name) {
   dom[toCamelCase(name)] = document.getElementById(name);
@@ -213,34 +213,18 @@ function initLayout() {
   window.addEventListener('screenlayoutchange', handleScreenLayoutChange);
 
   switchLayout(LAYOUT_MODE.list);
+
+  // Media controls are not to be hiden when on tablet in landscape
+  // mode showing the list view). Inform media player component.
+  setAllowMediaControlsHiding();
 }
 
 function initPlayerControls() {
 
-  initVideoControls();
+  console.log('initPlayerControls');
+  console.log('mediaPlayerComponent: ' + dom.mediaPlayerComponent);
 
-  // handle user tapping events
-  dom.mediaControlsContainer.addEventListener('click',
-                                              toggleVideoControls,
-                                              true);
-  dom.playerHeader.addEventListener('action', handleCloseButtonClick);
-  dom.pickerDone.addEventListener('click', postPickResult);
-  dom.options.addEventListener('click', showOptionsView);
-}
-
-function initVideoControls() {
-
-  dom.mediaControls.initialize(dom.player);
-
-  // Add listeners for video controls web component
-  //
-  // play, pause
-  dom.mediaControls.addEventListener('play-button-click',
-    handlePlayButtonClick);
-
-  // Fullscreen button (tablet only)
-  dom.mediaControls.addEventListener('fullscreen-button-click',
-    toggleFullscreenPlayer);
+  dom.mediaPlayerComponent.initialize(dom.player);
 }
 
 function initOptionsButtons() {
@@ -283,27 +267,6 @@ function toggleFullscreenPlayer(e) {
                           currentVideo.metadata.rotation || 0);
 }
 
-function toggleVideoControls(e) {
-  // When we change the visibility state of video controls, we need to check the
-  // timeout of auto hiding.
-  if (controlFadeTimeout) {
-    clearTimeout(controlFadeTimeout);
-    controlFadeTimeout = null;
-  }
-  // We cannot change the visibility state of video contorls when we are in
-  // picking mode.
-  if (!pendingPick) {
-    if (dom.mediaControls.hidden) {
-      // If control not shown, tap any place to show it.
-      setControlsVisibility(true);
-      e.cancelBubble = true;
-    } else if (e.originalTarget === dom.mediaControlsContainer) {
-      // If control is shown, only tap the empty area should show it.
-      setControlsVisibility(false);
-    }
-  }
-}
-
 function handleScreenLayoutChange() {
   // When resizing, we need to check the orientation change.
   isPortrait = ScreenLayout.getCurrentLayout('portrait');
@@ -335,7 +298,12 @@ function handleScreenLayoutChange() {
     // the maximum lines of title field is different in portrait or landscape
     // mode.
     ThumbnailItem.titleMaxLines = isPortrait ? 4 : 2;
+
   }
+
+  // Media controls are not to be hiden when on tablet in landscape
+  // mode showing the list view). Inform media player component.
+  setAllowMediaControlsHiding();
 
   // When layout mode is list or selection mode, we need to update all title
   // text to have correct ellipsis position. Otherwise, we update them when
@@ -358,6 +326,11 @@ function handleScreenLayoutChange() {
     VideoUtils.fitContainer(dom.videoContainer, dom.player,
                             currentVideo.metadata.rotation || 0);
   }
+}
+
+function setAllowMediaControlsHiding() {
+  dom.mediaPlayerComponent.allowHidingControls =
+    (isPhone || isPortrait || currentLayoutMode !== LAYOUT_MODE.list);
 }
 
 function switchLayout(mode) {
@@ -777,23 +750,6 @@ function showOverlay(id) {
   });
 }
 
-function setControlsVisibility(visible) {
-
-  // in tablet landscape mode, we always shows controls in list layout. We
-  // don't need to hide it.
-  if (isPhone || isPortrait ||
-      currentLayoutMode !== LAYOUT_MODE.list) {
-    dom.mediaControlsContainer.classList[visible ? 'remove' : 'add']('hidden');
-
-    // Let the media controls know whether it is visible
-    dom.mediaControls.hidden = !visible;
-
-  } else {
-    // always set it as shown.
-    dom.mediaControls.hidden = false;
-  }
-}
-
 function setVideoPlaying() {
   if (dom.player.paused) {
     play();
@@ -901,6 +857,11 @@ function scheduleVideoControlsAutoHiding() {
   }, 250);
 }
 
+// TODO remove this noop function when video is updated
+// to give this responsibility to media player component
+function setControlsVisibility() {
+}
+
 function setNFCSharing(enable) {
   if (!window.navigator.mozNfc) {
     return;
@@ -968,7 +929,7 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
       if (currentVideo.metadata.currentTime === dom.player.duration) {
         currentVideo.metadata.currentTime = 0;
       }
-      dom.videoTitle.textContent = currentVideo.metadata.title;
+      //dom.videoTitle.textContent = currentVideo.metadata.title;
       dom.player.currentTime = currentVideo.metadata.currentTime || 0;
       rotation = currentVideo.metadata.rotation;
     } else {

@@ -29,15 +29,6 @@ body > section {
   display: none;
 }
 
-/*
- * while mediaControls is hidden,
- * it should be stay on screen for mousedown event
- */
-#mediaControlsContainer.hidden {
-  display: block;
-  visibility: visible;
-}
-
 ul {
   padding: 0;
   margin: 0;
@@ -261,18 +252,6 @@ span.line-break {
 }
 
 /*
- * In view.html (but not index.html) we put the in-use-overlay element
- * inside mediaControls. In that case there is a 5rem title bar that needs
- * to be visible, so we alter the top position. And if we're handling
- * a pick activity, we also need the title bar with the back button to show.
- */
-#mediaControlsContainer > #in-use-overlay,
-body.pick-activity > #in-use-overlay {
-  top: 5rem;
-}
-
-
-/*
  * The overlay content area holds the text of the overlay.
  * It has borders and a less transparent background so that
  * the overlay text shows up more clearly
@@ -440,50 +419,10 @@ header .icon:after {
   background: none !important;
 }
 
-/* video player controls */
-#mediaControlsContainer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  opacity: 1;
-  will-change: opacity;
-  -moz-transition: opacity 0.5s;
-}
-#mediaControlsContainer.hidden {
-  opacity: 0;
-}
-
-#mediaControlsContainer.hidden > * {
-  pointer-events: none;
-}
-
 /* layout changes for pick activity */
 body:not(.pick-activity) #picker-title,
-body:not(.pick-activity) #picker-done,
 body:not(.pick-activity) #picker-close {
   display: none;
-}
-
-/**
- * 1. COMPLEX: Scoped style-sheets within <gaia-header>
- *    trump all other rules. !important is required
- *    for an app to over-ride the default appearance
- *    of content within the custom-element. This may
- *    change when we get `:host` and `:content` selectors
- *    in shadow-dom.
- */
-
-body:not(.pick-activity) #picker-done {
-  display: none !important; /* 1 */
-}
-
-/* hide options when picking */
-body.pick-activity #options,
-body.pick-activity #thumbnails-bottom {
-  display: none !important; /* 1 */
 }
 
 #two-column-spearator {

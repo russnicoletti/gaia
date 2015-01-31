@@ -40,6 +40,7 @@
     <link rel="stylesheet" type="text/css" href="shared/elements/gaia-icons/gaia-icons.css" />
     <script defer src="shared/elements/gaia-header/dist/gaia-header.js"></script>
     <script defer src="shared/elements/gaia-media-controls/dist/gaia-media-controls.js"></script>
+    <script defer src="shared/elements/gaia-media-player/dist/gaia-media-player.js"></script>
 
     <script defer src="js/metadata.js"></script>
     <script defer src="js/db.js"></script>
@@ -82,17 +83,7 @@
       <div id="video-container">
         <video src="about:blank" id="player"></video>
       </div>
-      <!-- video controls -->
-      <div id="mediaControlsContainer">
-        <section role="region">
-          <gaia-header id="player-header" action="back">
-            <h1 id="video-title"></h1>
-            <button id="options" data-icon="more"></button>
-            <button id="picker-done" data-l10n-id="done">Done</button>
-          </gaia-header>
-          <gaia-media-controls id="media-controls"></gaia-media-controls>
-        </section>
-      </div>
+      <gaia-media-player id="media-player-component"></gaia-media-player>
     </section>
 
     <form id="info-view" role="dialog" data-type="confirm" class="hidden">
