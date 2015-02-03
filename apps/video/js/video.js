@@ -24,7 +24,7 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom', 'thumbnail-list-title',
     'video-container', /*'mediaControlsContainer',*/ 'close',/* 'video-title',*/
            'throbber', 'picker-close', 'picker-title', 'picker-header',
           /*'picker-done', 'options',*/ 'options-view', 'options-cancel-button',
-           'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text',
+           //'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text',
            'media-player-component'];
 
 ids.forEach(function createElementRef(name) {
@@ -84,12 +84,6 @@ var pendingUpdateTitleText = false;
 
 // Videos recorded by our own camera have filenames of this form
 var FROMCAMERA = /DCIM\/\d{3}MZLLA\/VID_\d{4}\.3gp$/;
-
-// We have a single instance of the loading checker because it is used
-// across functions
-var loadingChecker =
-  new VideoLoadingChecker(dom.player, dom.inUseOverlay, dom.inUseOverlayTitle,
-                          dom.inUseOverlayText);
 
 // Pause on visibility change
 document.addEventListener('visibilitychange', function visibilityChange() {
@@ -834,7 +828,8 @@ function setVideoUrl(player, video, callback) {
   }
 
   function loadVideo(url) {
-    loadingChecker.ensureVideoLoads(handleLoadedMetadata);
+    //loadingChecker.ensureVideoLoads(handleLoadedMetadata);
+    dom.player.onloadedmetadata = handleLoadedMetadata;
     player.src = url;
   }
 
@@ -1031,7 +1026,7 @@ function hidePlayer(updateVideoMetadata, callback) {
 }
 
 function play() {
-  loadingChecker.ensureVideoPlays();
+  //loadingChecker.ensureVideoPlays();
 
   // Start recording statistics
   //
@@ -1044,7 +1039,7 @@ function play() {
 }
 
 function pause() {
-  loadingChecker.cancelEnsureVideoPlays();
+  //loadingChecker.cancelEnsureVideoPlays();
 
   // Stop playing the video
   dom.player.pause();
