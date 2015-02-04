@@ -20,12 +20,13 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom', 'thumbnail-list-title',
            'thumbnails-single-delete-button', 'thumbnails-single-share-button',
            'thumbnails-single-info-button', 'info-view', 'info-close-button',
            'player', 'overlay', 'overlay-title', 'overlay-text',
-           'overlay-menu', 'overlay-action-button', /*'player-header',*/
-    'video-container', /*'mediaControlsContainer',*/ 'close',/* 'video-title',*/
-           'throbber', 'picker-close', 'picker-title', 'picker-header',
-          /*'picker-done', 'options',*/ 'options-view', 'options-cancel-button',
-           //'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text',
-           'media-player-component'];
+           'overlay-menu', 'overlay-action-button', 'player-header',
+           'video-container', 'mediaPlayerContainer', 'media-player-component',
+           'media-player-header', 'close', 'video-title', 'throbber',
+           'picker-close', 'picker-title', 'picker-header',
+           'picker-done', 'options', 'options-view', 'options-cancel-button',
+           'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text'
+          ];
 
 ids.forEach(function createElementRef(name) {
   dom[toCamelCase(name)] = document.getElementById(name);
@@ -84,6 +85,12 @@ var pendingUpdateTitleText = false;
 
 // Videos recorded by our own camera have filenames of this form
 var FROMCAMERA = /DCIM\/\d{3}MZLLA\/VID_\d{4}\.3gp$/;
+
+// We have a single instance of the loading checker because it is used
+// across functions
+var loadingChecker =
+  new VideoLoadingChecker(dom.player, dom.inUseOverlay, dom.inUseOverlayTitle,
+                          dom.inUseOverlayText);
 
 // Pause on visibility change
 document.addEventListener('visibilitychange', function visibilityChange() {
@@ -207,18 +214,41 @@ function initLayout() {
   window.addEventListener('screenlayoutchange', handleScreenLayoutChange);
 
   switchLayout(LAYOUT_MODE.list);
+}
+
+function initPlayerControls() {
+
+  console.log('initializing mediaPlayerComponent...');
+  dom.mediaPlayerComponent.initialize(dom.player);
+  console.log('initialized mediaPlayerComponent');
+
+  console.log('adding event listener to mediaPlayerComponent: ' +
+              dom.mediaPlayerComponent);
+  dom.mediaPlayerComponent.addEventListener('media-controls-toggled',
+                                            handleMediaControlsToggled);
+  console.log('added event listener to mediaPlayerComponent');
+  dom.playerHeader.addEventListener('action', handleCloseButtonClick);
+  dom.pickerDone.addEventListener('click', postPickResult);
+
+  console.log('adding event listener to options: ' + dom.options);
+  dom.options.addEventListener('click', showOptionsView);
+  console.log('added event listener to options');
 
   // Media controls are not to be hiden when on tablet in landscape
   // mode showing the list view). Inform media player component.
   setAllowMediaControlsHiding();
 }
 
-function initPlayerControls() {
+function setAllowMediaControlsHiding() {
+  dom.mediaPlayerComponent.allowHidingControls =
+    (isPhone || isPortrait || currentLayoutMode !== LAYOUT_MODE.list);
+  console.log('dom.mediaPlayerComponent.allowHidingControls: ' +
+               dom.mediaPlayerComponent.allowHidingControls);
+}
 
-  console.log('initPlayerControls');
-  console.log('mediaPlayerComponent: ' + dom.mediaPlayerComponent);
-
-  dom.mediaPlayerComponent.initialize(dom.player);
+function handleMediaControlsToggled() {
+  console.log('handleMediaControlsToggled');
+  dom.mediaPlayerHeader.hidden = dom.mediaPlayerComponent.controlsHidden;
 }
 
 function initOptionsButtons() {
@@ -292,12 +322,7 @@ function handleScreenLayoutChange() {
     // the maximum lines of title field is different in portrait or landscape
     // mode.
     ThumbnailItem.titleMaxLines = isPortrait ? 4 : 2;
-
   }
-
-  // Media controls are not to be hiden when on tablet in landscape
-  // mode showing the list view). Inform media player component.
-  setAllowMediaControlsHiding();
 
   // When layout mode is list or selection mode, we need to update all title
   // text to have correct ellipsis position. Otherwise, we update them when
@@ -320,11 +345,6 @@ function handleScreenLayoutChange() {
     VideoUtils.fitContainer(dom.videoContainer, dom.player,
                             currentVideo.metadata.rotation || 0);
   }
-}
-
-function setAllowMediaControlsHiding() {
-  dom.mediaPlayerComponent.allowHidingControls =
-    (isPhone || isPortrait || currentLayoutMode !== LAYOUT_MODE.list);
 }
 
 function switchLayout(mode) {
@@ -421,6 +441,8 @@ function hideSelectView() {
 }
 
 function showOptionsView() {
+  console.log('showOptionsView!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+
   // If the user is about to share a video we should stop playing it because
   // sometimes we won't go to the background when the activity starts and
   // we keep playing. This will cause problems if the receiving app also tries
@@ -828,8 +850,7 @@ function setVideoUrl(player, video, callback) {
   }
 
   function loadVideo(url) {
-    //loadingChecker.ensureVideoLoads(handleLoadedMetadata);
-    dom.player.onloadedmetadata = handleLoadedMetadata;
+    loadingChecker.ensureVideoLoads(handleLoadedMetadata);
     player.src = url;
   }
 
@@ -852,7 +873,7 @@ function scheduleVideoControlsAutoHiding() {
   }, 250);
 }
 
-// TODO remove this noop function when video is updated
+// TODO remove this noop function when video app is updated
 // to give this responsibility to media player component
 function setControlsVisibility() {
 }
@@ -924,7 +945,7 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
       if (currentVideo.metadata.currentTime === dom.player.duration) {
         currentVideo.metadata.currentTime = 0;
       }
-      //dom.videoTitle.textContent = currentVideo.metadata.title;
+      dom.videoTitle.textContent = currentVideo.metadata.title;
       dom.player.currentTime = currentVideo.metadata.currentTime || 0;
       rotation = currentVideo.metadata.rotation;
     } else {
@@ -1026,7 +1047,7 @@ function hidePlayer(updateVideoMetadata, callback) {
 }
 
 function play() {
-  //loadingChecker.ensureVideoPlays();
+  loadingChecker.ensureVideoPlays();
 
   // Start recording statistics
   //
@@ -1039,7 +1060,7 @@ function play() {
 }
 
 function pause() {
-  //loadingChecker.cancelEnsureVideoPlays();
+  loadingChecker.cancelEnsureVideoPlays();
 
   // Stop playing the video
   dom.player.pause();

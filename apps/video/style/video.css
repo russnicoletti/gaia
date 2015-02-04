@@ -231,6 +231,7 @@ span.line-break {
  * is displayed.
  */
 #overlay,
+#in-use-overlay,
 #confirm-dialog {
   /* it takes up the whole screen */
   position: absolute;
@@ -240,7 +241,8 @@ span.line-break {
   right: 0;
 }
 
-#overlay {
+#overlay,
+#in-use-overlay {
   /* almost transparent gray */
   background-color: rgba(0, 0, 0, 0.4);
 }
@@ -250,11 +252,26 @@ span.line-break {
 }
 
 /*
+ * In view.html (but not index.html) we put the in-use-overlay element
+ * inside mediaControls. In that case there is a 5rem title bar that needs
+ * to be visible, so we alter the top position. And if we're handling
+ * a pick activity, we also need the title bar with the back button to show.
+ *
+ * TODO to avoid inconsistency and confusion, in view.html, in-use-overlay
+ * should not be a child of mediaControlsContainer
+*/
+#mediaControlsContainer > #in-use-overlay,
+body.pick-activity > #in-use-overlay {
+  top: 5rem;
+}
+
+
+/*
  * The overlay content area holds the text of the overlay.
  * It has borders and a less transparent background so that
  * the overlay text shows up more clearly
  */
-#overlay-content {
+#overlay-content, #in-use-overlay-content {
   background-color: #2d2d2d;
   background-size: auto auto, 100% 100%;
   /* We can't use shortand with background size because is not implemented yet:
@@ -273,7 +290,7 @@ span.line-break {
   padding: 11rem 2.5rem 0 2.5rem;
 }
 
-#overlay-title {
+#overlay-title, #in-use-overlay-title {
   font-weight: normal;
   font-size: 1.9rem;
   color: #fff;
@@ -281,7 +298,7 @@ span.line-break {
   padding: 0;
 }
 
-#overlay-text {
+#overlay-text, #in-use-overlay-text {
   padding: 1rem 0.5rem 0 0.5rem;
   border-top: 0.1rem solid #686868;
   font-weight: 300;
@@ -419,8 +436,28 @@ header .icon:after {
 
 /* layout changes for pick activity */
 body:not(.pick-activity) #picker-title,
+body:not(.pick-activity) #picker-done,
 body:not(.pick-activity) #picker-close {
   display: none;
+}
+
+/**
+ * 1. COMPLEX: Scoped style-sheets within <gaia-header>
+ *    trump all other rules. !important is required
+ *    for an app to over-ride the default appearance
+ *    of content within the custom-element. This may
+ *    change when we get `:host` and `:content` selectors
+ *    in shadow-dom.
+ */
+
+body:not(.pick-activity) #picker-done {
+  display: none !important; /* 1 */
+}
+
+/* hide options when picking */
+body.pick-activity #options,
+body.pick-activity #thumbnails-bottom {
+  display: none !important; /* 1 */
 }
 
 #two-column-spearator {
