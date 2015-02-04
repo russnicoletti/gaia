@@ -119,7 +119,7 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
                'player-header', 'video-container', 'video-title',
                'spinner-overlay', 'save', 'banner', 'message',
                'in-use-overlay', 'in-use-overlay-title',
-               'in-use-overlay-text', 'media-controls'];
+               'in-use-overlay-text', 'media-player-component'];
 
     ids.forEach(function createElementRef(name) {
       dom[toCamelCase(name)] = document.getElementById(name);
@@ -153,18 +153,8 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     dom.playerHeader.addEventListener('action', done);
     dom.save.addEventListener('click', save);
 
-    // video controls component
-    dom.mediaControls.initialize(dom.player);
-
-    // Add listeners for video controls web component
-    //
-    // play, pause
-    dom.mediaControls.addEventListener('play-button-click',
-      handlePlayButtonClick);
-
-    dom.mediaControlsContainer.addEventListener('click',
-                                                toggleVideoControls,
-                                                true);
+    // media player component
+    dom.mediaPlayerComponent.initialize(dom.player);
   }
 
   function checkFilename() {
@@ -177,28 +167,9 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     }
   }
 
-  function setControlsVisibility(visible) {
-    dom.mediaControlsContainer.classList[visible ? 'remove' : 'add']('hidden');
-    dom.mediaControls.hidden = !visible;
-  }
-
-  function toggleVideoControls(e) {
-    // When we change the visibility state of video controls, we need to check
-    // the timeout of auto hiding.
-    if (controlFadeTimeout) {
-      clearTimeout(controlFadeTimeout);
-      controlFadeTimeout = null;
-    }
-    // We cannot change the visibility state of video contorls when we are in
-    // picking mode.
-    if (dom.mediaControls.hidden) {
-      // If control not shown, tap any place to show it.
-      setControlsVisibility(true);
-      e.cancelBubble = true;
-    } else if (e.originalTarget === dom.mediaControlsContainer) {
-      // If control is shown, only tap the empty area should show it.
-      setControlsVisibility(false);
-    }
+  // TODO remove this noop function when video app is updated
+  // to give this responsibility to media player component
+  function setControlsVisibility() {
   }
 
   function done() {

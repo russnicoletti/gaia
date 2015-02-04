@@ -20,15 +20,14 @@
       <div id="video-container">
         <video id="player" preload="metadata"></video>
       </div>
-      <!-- video controls -->
-      <div id="mediaControlsContainer" class="hidden">
-        <section role="region">
-          <gaia-header id="player-header" action="back">
-            <h1 id="video-title"></h1>
-            <button id="save" data-l10n-id="save" hidden></button>
-          </gaia-header>
-          <gaia-media-controls id="media-controls"></gaia-media-controls>
-        </section>
+        <gaia-media-player id="media-player-component">
+          <section role="region">
+            <gaia-header id="player-header" action="back">
+              <h1 id="video-title"></h1>
+              <button id="save" data-l10n-id="save" hidden></button>
+            </gaia-header>
+          </section>
+        </gaia-media-player>
         <!-- display messages like "Cannot load video" here -->
         <form id="in-use-overlay" role="dialog" data-type="confirm" class="hidden">
           <section id="in-use-overlay-content">
@@ -58,6 +57,7 @@
     <link rel="stylesheet" type="text/css" href="app://theme.gaiamobile.org/shared/elements/gaia-theme/gaia-theme.css">
     <script defer src="shared/elements/gaia-header/dist/gaia-header.js"></script>
     <script defer src="shared/elements/gaia-media-controls/dist/gaia-media-controls.js"></script>
+    <script defer src="shared/elements/gaia-media-player/dist/gaia-media-player.js"></script>
 
     <!-- App Code -->
     <script defer src="js/video_loading_checker.js"></script>

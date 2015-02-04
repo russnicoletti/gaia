@@ -19,11 +19,10 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom', 'thumbnail-list-title',
            'thumbnails-number-selected', 'player-view', 'spinner-overlay',
            'thumbnails-single-delete-button', 'thumbnails-single-share-button',
            'thumbnails-single-info-button', 'info-view', 'info-close-button',
-           'player', 'overlay', 'overlay-title', 'overlay-text',
+           'overlay', 'overlay-title', 'overlay-text',
            'overlay-menu', 'overlay-action-button', 'player-header',
-           'video-container', 'mediaPlayerContainer', 'media-player-component',
-           'media-player-header', 'close', 'video-title', 'throbber',
-           'picker-close', 'picker-title', 'picker-header',
+           'media-player-component', 'close', 'video-title',
+           'throbber', 'picker-close', 'picker-title', 'picker-header',
            'picker-done', 'options', 'options-view', 'options-cancel-button',
            'in-use-overlay', 'in-use-overlay-title', 'in-use-overlay-text'
           ];
@@ -32,7 +31,10 @@ ids.forEach(function createElementRef(name) {
   dom[toCamelCase(name)] = document.getElementById(name);
 });
 
-dom.player.mozAudioChannelType = 'content';
+console.log('videoTitle: ' + dom.videoTitle);
+
+// TODO move player functionality into media player component
+//dom.player.mozAudioChannelType = 'content';
 
 function $(id) { return document.getElementById(id); }
 
@@ -66,7 +68,7 @@ var currentOverlay;
 // events related to this id.
 var thumbnailList;
 
-var pendingPick;
+var pendingPick = null;
 
 // Before launching a share activity we may need to release the video hardware
 // If so we need to remember the playback time so we can resume at the
@@ -96,9 +98,10 @@ var loadingChecker =
 document.addEventListener('visibilitychange', function visibilityChange() {
   if (document.hidden) {
     stopParsingMetadata();
-    if (!dom.player.paused) {
-      pause();
-    }
+// TODO move player functionality into media player component
+//    if (!dom.player.paused) {
+//      pause();
+//    }
   }
   else {
     if (playerShowing) {
@@ -163,9 +166,10 @@ function init() {
   if (acm) {
     acm.addEventListener('headphoneschange', function onheadphoneschange() {
       // Pause video when headphones are unplugged (if video is playing)
-      if (!acm.headphones && !dom.player.paused) {
-        pause();
-      }
+// TODO move player functionality into media player component
+//      if (!acm.headphones && !dom.player.paused) {
+//        pause();
+//      }
     });
   }
 
@@ -218,15 +222,13 @@ function initLayout() {
 
 function initPlayerControls() {
 
-  console.log('initializing mediaPlayerComponent...');
-  dom.mediaPlayerComponent.initialize(dom.player);
-  console.log('initialized mediaPlayerComponent');
+  // TODO it seems the media player component cannot load the video
+  // title as it is not part of its html -- it's part of video app
+  // html since it is managing the localization of gaia-header
+  // elements and therefore the video title is in the app html,
+  // which then gets pulled into the gaia-header component
+  dom.mediaPlayerComponent.initialize(dom.videoTitle);
 
-  console.log('adding event listener to mediaPlayerComponent: ' +
-              dom.mediaPlayerComponent);
-  dom.mediaPlayerComponent.addEventListener('media-controls-toggled',
-                                            handleMediaControlsToggled);
-  console.log('added event listener to mediaPlayerComponent');
   dom.playerHeader.addEventListener('action', handleCloseButtonClick);
   dom.pickerDone.addEventListener('click', postPickResult);
 
@@ -279,7 +281,9 @@ function addEventListeners(selector, type, listener) {
   }
 }
 
+// TODO Move to media player component?
 function toggleFullscreenPlayer(e) {
+/*
   if (currentLayoutMode === LAYOUT_MODE.list) {
     switchLayout(LAYOUT_MODE.fullscreenPlayer);
     scheduleVideoControlsAutoHiding();
@@ -289,6 +293,7 @@ function toggleFullscreenPlayer(e) {
 
   VideoUtils.fitContainer(dom.videoContainer, dom.player,
                           currentVideo.metadata.rotation || 0);
+*/
 }
 
 function handleScreenLayoutChange() {
@@ -341,10 +346,14 @@ function handleScreenLayoutChange() {
 
   // Rescale when window size changes. This should get called when
   // screen orientation changes
-  if (dom.player.readyState !== HAVE_NOTHING) {
+// TODO move player functionality into media player component
+//  if (dom.player.readyState !== HAVE_NOTHING) {
+    // TODO fitContainer should be moved to media player component
+    /*
     VideoUtils.fitContainer(dom.videoContainer, dom.player,
                             currentVideo.metadata.rotation || 0);
-  }
+    */
+//  }
 }
 
 function switchLayout(mode) {
@@ -449,9 +458,10 @@ function showOptionsView() {
   // to play it. Similarly, if the user is going to delete the video there is
   // no point in continuing to play it. And if they care enough about it to
   // look for more info about it, they probably don't want to miss anything.
-  if (!dom.player.paused) {
-    pause();
-  }
+// TODO move player functionality into media player component
+//  if (!dom.player.paused) {
+//    pause();
+//  }
   dom.optionsView.classList.remove('hidden');
 }
 
@@ -767,11 +777,11 @@ function showOverlay(id) {
 }
 
 function setVideoPlaying() {
-  if (dom.player.paused) {
-    play();
-  } else {
-    pause();
-  }
+//  if (dom.player.paused) {
+//    play();
+//  } else {
+//    pause();
+//  }
 }
 
 function deleteCurrentVideo() {
@@ -837,36 +847,6 @@ function shareCurrentVideo() {
   });
 }
 
-function setVideoUrl(player, video, callback) {
-
-  function handleLoadedMetadata() {
-    // We only want the 'loadedmetadata' handler to execute when the video
-    // app explicitly loads a video. To prevent unwanted side affects, for
-    // example, when the video app is sent to the background and then to the
-    // foreground, where gecko sends a 'loadedmetadata' event (among others),
-    // we clear the 'loadedmetadata' event handler after the event fires.
-    dom.player.onloadedmetadata = null;
-    callback();
-  }
-
-  function loadVideo(url) {
-    loadingChecker.ensureVideoLoads(handleLoadedMetadata);
-    player.src = url;
-  }
-
-  if ('name' in video) {
-    videodb.getFile(video.name, function(file) {
-      var url = URL.createObjectURL(file);
-      loadVideo(url);
-
-      if (pendingPick)
-        currentVideoBlob = file;
-    });
-  } else if ('url' in video) {
-    loadVideo(video.url);
-  }
-}
-
 function scheduleVideoControlsAutoHiding() {
   controlFadeTimeout = setTimeout(function() {
     setControlsVisibility(false);
@@ -898,8 +878,42 @@ function setNFCSharing(enable) {
   }
 }
 
+function loadVideo(options) {
+
+  var mediaFile = options.videoFile;
+  var loadOptions = {
+    'mediaFile': mediaFile,
+    'showControls': options.showControls,
+    'keepControls': options.keepControls,
+    'restoreTime': options.restoreTime
+  };
+
+  var url;
+  if ('name' in mediaFile) {
+    console.log('\'name\' in mediaFile: ' + mediaFile.name);
+    videodb.getFile(mediaFile.name, function(file) {
+      console.log('getFile callback, file: ' + file);
+      loadOptions.url = URL.createObjectURL(file);
+
+      console.log('loadVideo, loadOptions:');
+      for (var key in loadOptions) {
+        console.log('loadOptions[' + key + ']: ' + loadOptions[key]);
+      }
+
+      if (pendingPick)
+        currentVideoBlob = file;
+
+      dom.mediaPlayerComponent.load(loadOptions);
+    });
+  } else if ('url' in mediaFile) {
+    loadOptions.url = mediaFile.url;
+    dom.mediaPlayerComponent.load(loadOptions);
+  }
+}
+
 // show video player
 function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
+
   if (currentVideo) {
     var old = thumbnailList.thumbnailMap[currentVideo.name];
     old.htmlNode.classList.remove('focused');
@@ -910,61 +924,35 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
 
   // switch to the video player view
   updateDialog();
-  dom.player.preload = 'metadata';
 
-  function doneSeeking() {
-    dom.player.onseeked = null;
-    setControlsVisibility(true);
+  dom.mediaPlayerComponent.addEventListener('media-loaded', videoLoaded);
+  console.log('before calling loadVideo, keepControls: ' + keepControls);
+  loadVideo({
+    'videoFile': currentVideo,
+    'showControls' : true,
+    'keepControls': keepControls || false});
 
-    if (!keepControls) {
-      scheduleVideoControlsAutoHiding();
-    }
+  function videoLoaded() {
+    console.log('video app, got media-loaded event');
 
-    if (autoPlay) {
-      play();
-    } else {
-      pause();
-    }
-
-    //show video player after seeking is done
-    dom.player.hidden = false;
-  }
-
-  //hide video player before setVideoUrl
-  dom.player.hidden = true;
-  setVideoUrl(dom.player, currentVideo, function() {
+    dom.mediaPlayerComponent.removeEventListener('media-loaded', videoLoaded);
 
     if (enterFullscreen) {
       switchLayout(LAYOUT_MODE.fullscreenPlayer);
+
+      // Enable NFC sharing in fullscreen player mode
+      setNFCSharing(true);
+    }
+
+    if (autoPlay) {
+      console.log('autoPlay is true, invoking play() on media component');
+      dom.mediaPlayerComponent.play();
+    } else {
+      dom.mediaPlayerComponent.pause();
     }
 
     playerShowing = true;
-
-    var rotation;
-    if ('metadata' in currentVideo) {
-      if (currentVideo.metadata.currentTime === dom.player.duration) {
-        currentVideo.metadata.currentTime = 0;
-      }
-      dom.videoTitle.textContent = currentVideo.metadata.title;
-      dom.player.currentTime = currentVideo.metadata.currentTime || 0;
-      rotation = currentVideo.metadata.rotation;
-    } else {
-      dom.videoTitle.textContent = currentVideo.title || '';
-      dom.player.currentTime = 0;
-      rotation = 0;
-    }
-
-    VideoUtils.fitContainer(dom.videoContainer, dom.player,
-                            rotation || 0);
-
-    if (dom.player.seeking) {
-      dom.player.onseeked = doneSeeking;
-    } else {
-      doneSeeking();
-    }
-    // Enable NFC sharing in fullscreen player mode
-    setNFCSharing(true);
-  });
+  }
 }
 
 function hidePlayer(updateVideoMetadata, callback) {
@@ -975,7 +963,8 @@ function hidePlayer(updateVideoMetadata, callback) {
     return;
   }
 
-  dom.player.pause();
+// TODO move player functionality into media player component
+//  dom.player.pause();
   // Disable NFC sharing when leaving player mode
   setNFCSharing(false);
 
@@ -987,8 +976,9 @@ function hidePlayer(updateVideoMetadata, callback) {
     updateDialog();
 
     // The video is no longer being played; unload the it.
-    dom.player.removeAttribute('src');
-    dom.player.load();
+// TODO move player functionality into media player component
+//    dom.player.removeAttribute('src');
+//    dom.player.load();
 
     // Now that we're done using the video hardware to play a video, we
     // can start using it to parse metadata again, if we need to.
@@ -1013,7 +1003,8 @@ function hidePlayer(updateVideoMetadata, callback) {
   // capture the current frame to use as a new bookmark. In either case
   // we call updateMetadata() to update the thumbnail and update this and
   // other modified metadata.
-  if (dom.player.currentTime === 0) {
+// TODO move player functionality into media player component
+/*  if (dom.player.currentTime === 0) {
     video.metadata.bookmark = null; // Don't use delete here
     updateMetadata();
   }
@@ -1023,7 +1014,7 @@ function hidePlayer(updateVideoMetadata, callback) {
       updateMetadata();
     });
   }
-
+*/
   function updateMetadata() {
     // Update the thumbnail image for this video
     thumbnail.updatePoster(video.metadata.bookmark || video.metadata.poster);
@@ -1036,7 +1027,8 @@ function hidePlayer(updateVideoMetadata, callback) {
     }
 
     // Remember the current time so we can resume playback at this point
-    video.metadata.currentTime = dom.player.currentTime;
+// TODO move player functionality into media player component
+//    video.metadata.currentTime = dom.player.currentTime;
 
     // Save the new metadata to the db, but don't wait for it to complete
     videodb.updateMetadata(video.name, video.metadata);
@@ -1056,14 +1048,16 @@ function play() {
   // by setting the media.mediasource.enabled pref to true.
   VideoStats.start(dom.player);
 
-  dom.player.play();
+// TODO move player functionality into media player component
+//  dom.player.play();
 }
 
 function pause() {
   loadingChecker.cancelEnsureVideoPlays();
 
   // Stop playing the video
-  dom.player.pause();
+// TODO move player functionality into media player component
+//  dom.player.pause();
 
   //stop recording statistics and print them
   VideoStats.stop();
@@ -1126,7 +1120,8 @@ function releaseVideo() {
 
   // readyState = 0: no metadata loaded, we don't need to save the currentTime
   // of player. It is always 0 and can't be used to restore the state of video.
-  if (dom.player.readyState > 0) {
+// TODO move player functionality into media player component
+/*  if (dom.player.readyState > 0) {
     restoreTime = dom.player.currentTime;
   }
   else {
@@ -1134,6 +1129,7 @@ function releaseVideo() {
   }
   dom.player.removeAttribute('src');
   dom.player.load();
+*/
 }
 
 // We call this to load and seek the video again when the share activity
@@ -1146,11 +1142,9 @@ function restoreVideo() {
 
   // When restoreVideo is called, we assume we have currentVideo because the
   // playerShowing is true.
-  setVideoUrl(dom.player, currentVideo, function() {
-    VideoUtils.fitContainer(dom.videoContainer, dom.player,
-                            currentVideo.metadata.rotation || 0);
-    dom.player.currentTime = restoreTime;
-  });
+  loadVideo({'videoFile': currentVideo,
+             'showControls': false,
+             'restoreTime': restoreTime});
 }
 
 //

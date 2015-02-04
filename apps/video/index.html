@@ -8,6 +8,7 @@
     <meta name="availableLanguages" content="ar, en-US, fr, zh-TW">
     <link rel="localization" href="locales/video.{locale}.properties">
     <link rel="localization" href="/shared/locales/date/date.{locale}.properties">
+    <link rel="localization" href="/shared/locales/media/media.{locale}.properties">
     <!-- this file is loaded lazily but is listed here so it gets packaged
     <link rel="stylesheet" href="shared/style/confirm.css" type="text/css" />
     -->
@@ -80,11 +81,7 @@
     <section role="region" id="player-view">
       <!-- display this at startup while we create thumbnails -->
       <div id="spinner-overlay" class="hidden"><div id="spinner"></div></div>
-      <div id="video-container">
-        <video src="about:blank" id="player"></video>
-      </div>
-      <div id="mediaPlayerContainer">
-        <div id="media-player-header">
+        <gaia-media-player id="media-player-component">
           <section role="region">
             <gaia-header id="player-header" action="back">
               <h1 id="video-title"></h1>
@@ -92,9 +89,7 @@
               <button id="picker-done" data-l10n-id="done">Done</button>
             </gaia-header>
           </section>
-        </div>
-        <gaia-media-player id="media-player-component"></gaia-media-player>
-      </div>
+        </gaia-media-player>
     </section>
     <form id="info-view" role="dialog" data-type="confirm" class="hidden">
       <section>
