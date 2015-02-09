@@ -31,7 +31,8 @@ ids.forEach(function createElementRef(name) {
   dom[toCamelCase(name)] = document.getElementById(name);
 });
 
-console.log('videoTitle: ' + dom.videoTitle);
+console.log('VIDEOJSVIDEOJSVIDEOJS after loading dom elements');
+dom.mediaPlayerComponent.getVideoContainerDimensions();
 
 // TODO move player functionality into media player component
 //dom.player.mozAudioChannelType = 'content';
@@ -118,6 +119,9 @@ navigator.mozL10n.once(function() {
   // Tell performance monitors that our chrome is visible
   window.performance.mark('navigationLoaded');
   window.dispatchEvent(new CustomEvent('moz-chrome-dom-loaded'));
+
+  console.log('VIDEOJSVIDEOJSVIDEOJS in mozL10n \'once\'');
+  dom.mediaPlayerComponent.getVideoContainerDimensions();
 
   init();
 
@@ -232,9 +236,7 @@ function initPlayerControls() {
   dom.playerHeader.addEventListener('action', handleCloseButtonClick);
   dom.pickerDone.addEventListener('click', postPickResult);
 
-  console.log('adding event listener to options: ' + dom.options);
   dom.options.addEventListener('click', showOptionsView);
-  console.log('added event listener to options');
 
   // Media controls are not to be hiden when on tablet in landscape
   // mode showing the list view). Inform media player component.
@@ -249,7 +251,6 @@ function setAllowMediaControlsHiding() {
 }
 
 function handleMediaControlsToggled() {
-  console.log('handleMediaControlsToggled');
   dom.mediaPlayerHeader.hidden = dom.mediaPlayerComponent.controlsHidden;
 }
 
@@ -450,8 +451,6 @@ function hideSelectView() {
 }
 
 function showOptionsView() {
-  console.log('showOptionsView!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-
   // If the user is about to share a video we should stop playing it because
   // sometimes we won't go to the background when the activity starts and
   // we keep playing. This will cause problems if the receiving app also tries
@@ -890,9 +889,7 @@ function loadVideo(options) {
 
   var url;
   if ('name' in mediaFile) {
-    console.log('\'name\' in mediaFile: ' + mediaFile.name);
     videodb.getFile(mediaFile.name, function(file) {
-      console.log('getFile callback, file: ' + file);
       loadOptions.url = URL.createObjectURL(file);
 
       console.log('loadVideo, loadOptions:');
@@ -926,7 +923,6 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
   updateDialog();
 
   dom.mediaPlayerComponent.addEventListener('media-loaded', videoLoaded);
-  console.log('before calling loadVideo, keepControls: ' + keepControls);
   loadVideo({
     'videoFile': currentVideo,
     'showControls' : true,
@@ -945,7 +941,6 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
     }
 
     if (autoPlay) {
-      console.log('autoPlay is true, invoking play() on media component');
       dom.mediaPlayerComponent.play();
     } else {
       dom.mediaPlayerComponent.pause();
