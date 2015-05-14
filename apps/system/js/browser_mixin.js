@@ -81,6 +81,17 @@
       }
     },
 
+    getMeasures: function bm_getMeasures(callback) {
+      if (!this.iframe.getMeasures) {
+        return;
+      }
+
+      var req = this.iframe.getMeasures();
+      req.onsuccess = function(e) {
+        callback(e.target.result);
+      };
+    },
+
     /**
      * get the screenshot of mozbrowser iframe.
      * If it succeed, the blob would be stored in this._screenshotBlob.

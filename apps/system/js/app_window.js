@@ -1028,12 +1028,20 @@
     function aw__handle_mozbrowserloadend(evt) {
       if (!this.loaded) {
         // Perf test needs.
-        this.publish('loadtime', {
-          time: parseInt(Date.now() - this.launchTime),
-          timestamp: this.timestamp,
-          type: 'c',
-          src: this.config.url
-        });
+        this.stamp = Date.now();
+        this.getMeasures((function(detail) {
+          var timing = JSON.parse(detail.measures.performance.timing);
+          var t = timing.loadEventEnd - timing.navigationStart;
+          console.log(
+            'Measures: ' + t + ' vs: ' + parseInt(this.stamp - this.launchTime)
+          );
+          this.publish('loadtime', {
+            time: t,
+            timestamp: this.timestamp,
+            type: 'c',
+            src: this.config.url
+          });
+        }).bind(this));
       }
       this.loading = false;
       this.loaded = true;
