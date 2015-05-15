@@ -1,5 +1,5 @@
 'use strict';
-/* global SettingsListener,AppTelemetry */
+/* global SettingsListener */
 
 (function(exports) {
 
@@ -21,14 +21,6 @@
     SettingsListener.observe('debug.ttl.enabled', false, function(value) {
       !!value ? this.show() : this.hide();
     }.bind(this));
-
-    // Always listen for loadtime events as we will record loadtime
-    // telemetry metrics regardless of the ttl setting.
-    targets.forEach(function listen(target) {
-      window.addEventListener(target + 'loadtime', this);
-    }, this);
-      
-    window.addEventListener('appopened', this);
   }
 
   TTLView.prototype = {
@@ -60,6 +52,7 @@
 
       targets.forEach(function listen(target) {
         window.removeEventListener(target + 'opening', this);
+        window.removeEventListener(target + 'loadtime', this);
       }, this);
     },
 
@@ -73,8 +66,10 @@
       }
       this.element.style.visibility = 'visible';
 
+      // this is fired when the app launching is initialized
       targets.forEach(function listen(target) {
         window.addEventListener(target + 'opening', this);
+        window.addEventListener(target + 'loadtime', this);
       }, this);
     },
 
@@ -100,11 +95,8 @@
      */
     handleEvent: function(evt) {
       switch (evt.type) {
-        case 'apploadtime':
-          this.recordTelemetryData(evt.detail); // jshint ignore:line
-          // Intentionally fall through to update load time
-
         case 'homescreenloadtime':
+        case 'apploadtime':
         case 'activityloadtime':
           this.updateLoadtime(evt.detail.time, evt.detail.type);
           break;
@@ -113,10 +105,6 @@
         case 'appopening':
         case 'activityopening':
           this.resetLoadtime();
-          break;
-
-        case 'appopened':
-          this.app = evt.detail;
           break;
       }
     },
@@ -151,22 +139,6 @@
      */
     toggle: function() {
       this.visible ? this.hide() : this.show();
-    },
-
-    recordTelemetryData: function(data) {
-
-      var category;
-
-      // Determine if the is a cold or warm start time.
-      if (data.type === 'c') {
-        category = 'cold-start-time';
-      }
-      else if (data.type === 'w') {
-        category = 'warm-start-time';
-      }
-
-      var appTelemetry = new AppTelemetry(this.app, category);
-      appTelemetry.add(data.time);
     }
   };
 
