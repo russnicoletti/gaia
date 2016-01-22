@@ -310,7 +310,7 @@ html[dir=rtl] #thumbnails-number-selected {
     to line up with the focus mode button of the camera app
   */
   position: absolute;
-  top: 2rem;
+  top: 4rem;
   left: 1.4rem;
   width: 5rem;
   height: 5rem;
@@ -498,7 +498,7 @@ footer {
 #fullscreen-toolbar {
   height: 4.5rem;
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
   font-size: 0;
@@ -513,7 +513,7 @@ footer {
     restoring the toolbar from hidden state and transition the
     `visibility` property as well.
    */
-  transition: visibility 0.2s linear 0.1s, transform 0.2s linear 0.1s;
+  /*transition: visibility 0.2s linear 0.1s, transform 0.2s linear 0.1s;*/
 }
 
 /* only for large screen */
@@ -919,4 +919,10 @@ html[dir="rtl"] .sliderlabel {
 }
 #slider3 {
   -moz-margin-start: calc(3.9rem + (100% - 2 * 3.9rem));
+}
+
+.media-controls {
+  position: absolute;
+  top: calc(100% - 9rem);
+  width: 100%;
 }

@@ -58,8 +58,11 @@
     <!-- Web Components -->
     <script defer src="shared/elements/config.js"></script>
     <link rel="stylesheet" type="text/css" href="app://theme.gaiamobile.org/shared/elements/gaia-theme/gaia-theme.css">
-    <link rel="stylesheet" type="text/css" href="shared/elements/gaia-icons/gaia-icons.css" />
-    <link rel="stylesheet" type="text/css" href="shared/elements/gaia-icons/bidi-helper.css" />
+    <link rel="stylesheet" type="text/css" href="node_modules/fxos-icons/fxos-icons.css" />
+    <link rel="stylesheet" type="text/css" href="node_modules/fxos-icons/bidi-helper.css" />
+    <link rel="stylesheet" type="text/css" href="node_modules/fxos-theme/fxos-theme.css" />
+    <script defer src="node_modules/fxos-component/fxos-component.js"></script>
+    <script defer src="node_modules/fxos-media-controls/fxos-media-controls.js"></script>
 
     <!-- More application code. startup.js launches the app -->
     <script defer src="js/config.js"></script>
@@ -126,9 +129,15 @@
       <button id="fullscreen-back-button-tiny" data-l10n-id="back-button" type="reset" class="tiny-only" data-icon="back"></button>
       <div id="frames">
         <!-- the current photo plus next and previous waiting in the wings -->
-        <section id="frame1" class="frame"></section>
-        <section id="frame2" class="frame"></section>
-        <section id="frame3" class="frame"></section>
+        <section id="frame1" class="frame">
+          <fxos-media-controls id="media-controls-frame1" class="media-controls fxos-theme-media"></fxos-media-controls>
+        </section>
+        <section id="frame2" class="frame">
+          <fxos-media-controls id="media-controls-frame2" class="media-controls fxos-theme-media"></fxos-media-controls>
+        </section>
+        <section id="frame3" class="frame">
+          <fxos-media-controls id="media-controls-frame3" class="media-controls fxos-theme-media"></fxos-media-controls>
+        </section>
       </div>
       <section role="status" id="edit-copy-save-banner" class="banner" hidden>
         <p id="edit-copy-save-status"></p>

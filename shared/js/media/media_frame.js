@@ -34,7 +34,7 @@
  * the amount of RAM available on the device, and may limit the image decode
  * size on low-memory devices.
  */
-function MediaFrame(container, includeVideo, maxImageSize) {
+function MediaFrame(container, includeVideo, maxImageSize, mediaControlsTag) {
   this.clear(); // Set all the properties we'll use to default values
 
   if (typeof container === 'string') {
@@ -59,7 +59,7 @@ function MediaFrame(container, includeVideo, maxImageSize) {
 
   // Create the video player element unless we know we'll never need it
   if (includeVideo !== false) {
-    this.video = new VideoPlayer(container);
+    this.video = new VideoPlayer(container, mediaControlsTag);
     this.video.hide();
   }
 

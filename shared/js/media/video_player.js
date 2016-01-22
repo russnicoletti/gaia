@@ -1,5 +1,5 @@
 'use strict';
-/* global Format */
+///* global Format,fullscreenView */
 
 //
 // Create a <video> element and  <div> containing a video player UI and
@@ -33,7 +33,8 @@
 // 2) We are moving towards replacing this VideoPlayer object with web
 //    components (bug 1117885, bug 1131321)
 //
-function VideoPlayer(container) {
+function VideoPlayer(container, mediaControlsTag) {
+
   if (typeof container === 'string') {
     container = document.getElementById(container);
   }
@@ -67,6 +68,19 @@ function VideoPlayer(container) {
                                                 // are custom, we need to hide
                                                 // the video element to not
                                                 // confuse screen reader users.
+  var playerControls = document.getElementById(mediaControlsTag);
+  container.appendChild(playerControls);
+
+  playerControls.addEventListener('play', () => this.play());
+  playerControls.addEventListener('pause', () => this.pause());
+  playerControls.addEventListener('previous', () => this.previous());
+  playerControls.addEventListener('next', () => this.next());
+  playerControls.addEventListener('startseek', (evt) => {
+    this.startFastSeek(evt.detail.reverse);
+  });
+  playerControls.addEventListener('stopseek', () => this.stopFastSeek());
+
+/*
   var controls = newelt(container, 'div', 'videoPlayerControls');
   var playbutton = newelt(controls, 'button', 'videoPlayerPlayButton',
                           'playbackPlay');
@@ -84,24 +98,29 @@ function VideoPlayer(container) {
   // expose fullscreen button, so that client can manipulate it directly
   var fullscreenButton = newelt(slider, 'button', 'videoPlayerFullscreenButton',
                                 'playbackFullscreen');
-
+*/
   this.poster = poster;
   this.player = player;
+  this.playerControls = playerControls;
+/*
   this.controls = controls;
+*/
   this.playing = false;
 
   player.preload = 'metadata';
   player.mozAudioChannelType = 'content';
 
   var self = this;
+/*
   var controlsHidden = false;
+*/
   var dragging = false;
-  var endedTimer;
   var videourl;   // the url of the video to play
   var posterurl;  // the url of the poster image to display
   var rotation;   // Do we have to rotate the video? Set by load()
   var aspectRatio; // Width divided by height (after rotation)
   var videotimestamp;
+  var timer = null;
 
   // These are the dimensions at which the poster image and video will
   // be displayed on the screen. We make them as big as possible while still
@@ -113,6 +132,11 @@ function VideoPlayer(container) {
 
   var playbackTime;
   var capturedFrame;
+  var isFastSeeking;
+
+  // Set the fast seek interval. Allow the consumer of the video player to
+  // override.
+  self.FAST_SEEK_INTERVAL = 200;
 
   this.load = function(video, posterimage, aspect, rotate, timestamp) {
     this.reset();
@@ -215,12 +239,16 @@ function VideoPlayer(container) {
     }
 
     // Hide the pause button and slider
+/*
     footer.classList.add('hidden');
+*/
+/*
     controlsHidden = true;
-
+*/
     // Show the big central play button
+/*
     playbutton.classList.remove('hidden');
-
+*/
     if (this.onpaused) {
       this.onpaused();
     }
@@ -238,21 +266,70 @@ function VideoPlayer(container) {
     }
 
     // Hide the play button
+/*
     playbutton.classList.add('hidden');
+*/
     this.playing = true;
 
     // Start playing the video
     player.play();
 
     // Show the controls
+/*
     footer.classList.remove('hidden');
     controlsHidden = false;
-
+*/
     if (this.onplaying) {
       this.onplaying();
     }
   };
 
+  function seek(seekTo) {
+    if (seekTo < 0) {
+      seekTo = 0;
+    } else if (seekTo > player.duration) {
+      seekTo = player.duration;
+      self.pause();
+    }
+    player.fastSeek(seekTo);
+  }
+
+  this.previous = function previous() {
+    var seekTo = player.currentTime - 10;
+
+    seek(seekTo);
+  };
+
+  this.next = function next() {
+    var seekTo = player.currentTime + 10;
+
+    seek(seekTo);
+  };
+
+  this.startFastSeek = function startFastSeek(reverse) {
+    if (isFastSeeking) {
+      return;
+    }
+
+    isFastSeeking = true;
+
+    function fastSeek() {
+      if (!isFastSeeking) {
+        return;
+      }
+      var seekTo = player.currentTime + (reverse ? -5 : 5);
+      seek(seekTo);
+      setTimeout(fastSeek, self.FAST_SEEK_INTERVAL);
+    }
+
+    fastSeek();
+  };
+
+  this.stopFastSeek = function stopFastSeek() {
+    isFastSeeking = false;
+  };
+
+/*
   fullscreenButton.addEventListener('tap', function(e) {
     if (self.onfullscreentap) {
       // If the event propagate to controller, videoplayer will hide
@@ -261,7 +338,8 @@ function VideoPlayer(container) {
       self.onfullscreentap();
     }
   });
-
+*/
+/*
   // Hook up the play button
   playbutton.addEventListener('tap', function(e) {
     // If we're not showing the player or are paused, go to the play state
@@ -276,24 +354,58 @@ function VideoPlayer(container) {
     self.pause();
     e.stopPropagation();
   });
-
+*/
   // A click anywhere else on the screen should toggle the footer
   // But only when the video is playing.
   container.addEventListener('tap', function(e) {
+/*
     if ((e.target === player || e.target === container) && !player.paused) {
+*/
+    if (e.target !== self.playerControls) {
+/*
       footer.classList.toggle('hidden');
+*/
+      // If a video is being displayed, respond to tap.
+      // TODO: why is the VideoPlayer instantiated when an
+      //       photo is displayed? That is, why should the
+      //       VideoPlayer have to determine if a video is
+      //       being displayed?
+      if (videourl) {
+        if (timer) {
+          return;
+        }
+        // Add a delay before showing or hiding the controls
+        // to be consistent with the consumers of the
+        // VideoPlayer who use a delay when showing and hiding
+        // their toolbar.
+        // TODO: why use a delay when showing the controls?
+        //       The video app uses a delay when hiding but
+        //       not when showing the controls.
+        timer = setTimeout(function() {
+          timer = null;
+          if (self.playerControls.style.display === 'none') {
+            self.show();
+          } else {
+            self.hide();
+          }
+        }, 500);
+      }
+/*
       controlsHidden = !controlsHidden;
+*/
     }
   });
 
   // Set the video duration and size when we get metadata
   player.onloadedmetadata = function() {
+/*
     var formattedTime = formatTime(player.duration);
     durationText.textContent = formattedTime;
     slider.setAttribute('aria-valuemax', player.duration);
     // This sets the aria-label to a localized slider description
     document.l10n.setAttributes(slider, 'playbackSeekBar',
                                     {'duration': formattedTime});
+*/
     // start off in the paused state
     self.pause();
   };
@@ -305,19 +417,24 @@ function VideoPlayer(container) {
   });
 
   // If we reach the end of a video, reset to beginning
-  // This isn't always reliable, so we also set a timer in updateTime()
   player.onended = ended;
 
   function ended() {
     if (dragging) {
       return;
     }
-    if (endedTimer) {
-      clearTimeout(endedTimer);
-      endedTimer = null;
-    }
-    self.pause();
+/*
     self.init();
+*/
+    // If the video is playing when it reaches the end, move it
+    // to the beginning.
+    if (self.playing) {
+      player.currentTime = 0;
+    }
+
+    // Let player controls component know the video has been paused
+    // so that it can update the play/pause icon appropriately.
+    self.playerControls.paused = true;
   }
 
   // Update the slider and elapsed time as the video plays
@@ -325,6 +442,7 @@ function VideoPlayer(container) {
 
   // Set the elapsed time and slider position
   function updateTime() {
+/*
     if (!controlsHidden) {
       var formattedTime = formatTime(player.currentTime);
       elapsedText.textContent = formattedTime;
@@ -361,6 +479,7 @@ function VideoPlayer(container) {
       clearTimeout(endedTimer);
       endedTimer = null;
     }
+*/
   }
 
   // Pause and unload the video if we're hidden so that other apps
@@ -477,7 +596,7 @@ function VideoPlayer(container) {
     poster.style.transform = player.style.transform =
       'rotate(' + rotation + 'deg)';
   }
-
+/*
   // handle drags on the time slider
   slider.addEventListener('pan', function pan(e) {
     e.stopPropagation();
@@ -551,6 +670,7 @@ function VideoPlayer(container) {
       }
     });
   }
+*/
 
   this.localize = function() {
     // XXX: Ideally, we would add the duration too, but that is not
@@ -596,12 +716,12 @@ function VideoPlayer(container) {
 
 VideoPlayer.prototype.hide = function() {
   // Call reset() to hide the poster and player
-  this.controls.style.display = 'none';
+  this.playerControls.style.display = 'none';
 };
 
 VideoPlayer.prototype.show = function() {
   // Call init() to show the poster
-  this.controls.style.display = 'block';
+  this.playerControls.style.display = 'block';
 };
 
 VideoPlayer.instancesToLocalize = new WeakMap();

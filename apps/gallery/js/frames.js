@@ -51,9 +51,12 @@ var frames = $('frames');
 // those as currentFrame.image and currentFrame.video.player and
 // currentFrame.video.controls.
 var maxImageSize = CONFIG_MAX_IMAGE_PIXEL_SIZE;
-var previousFrame = new MediaFrame($('frame1'), true, maxImageSize);
-var currentFrame = new MediaFrame($('frame2'), true, maxImageSize);
-var nextFrame = new MediaFrame($('frame3'), true, maxImageSize);
+var previousFrame =
+  new MediaFrame($('frame1'), true, maxImageSize, 'media-controls-frame1');
+var currentFrame =
+  new MediaFrame($('frame2'), true, maxImageSize, 'media-controls-frame2');
+var nextFrame =
+  new MediaFrame($('frame3'), true, maxImageSize, 'media-controls-frame3');
 
 if (CONFIG_REQUIRED_EXIF_PREVIEW_WIDTH) {
   previousFrame.setMinimumPreviewSize(CONFIG_REQUIRED_EXIF_PREVIEW_WIDTH,
@@ -132,6 +135,11 @@ currentFrame.video.onfullscreentap =
 // element. This is because VideoPlayer pauses and plays the <video> when
 // the user drags on the slider, and we don't want to trigger these handlers
 // in that case.
+/*
+ * Model behavior using video app: leave toolbar on screen until a tap
+ * not on toolbar or video controls.
+ */
+/*
 currentFrame.video.onplaying =
   previousFrame.video.onplaying =
   nextFrame.video.onplaying =
@@ -154,6 +162,7 @@ currentFrame.video.onpaused =
     }
     delete this.isToolbarHidden;
   };
+*/
 
 // Each of the Frame container elements may be subject to animated
 // transitions. So give them transitionend event handlers that
@@ -292,8 +301,14 @@ function resizeFrames() {
 // fullscreen mode directly.
 function singletap(e) {
   if (currentView === LAYOUT_MODE.fullscreen) {
+/*
     if ((currentFrame.displayingImage || currentFrame.video.player.paused) &&
          isPhone) {
+*/
+    // Toggle toolbar if a photo is being displayed or a video is displayed
+    // and if tapping away from the video controls.
+    if ((currentFrame.displayingImage ||
+         e.target !== currentFrame.video.playerControls) && isPhone) {
       fullscreenView.classList.toggle('toolbar-hidden');
     }
   } else if (!isPhone && currentView === LAYOUT_MODE.list &&
